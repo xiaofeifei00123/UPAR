@@ -12,7 +12,7 @@ Description:
 -----------------------------------------
 Time             :2021/06/17 18:59:18
 Author           :Forxd
-Version          :1.0
+Version          :2.0
 '''
 
 import xarray as xr
@@ -50,9 +50,7 @@ class Regrid():
             [type]: [description]
         """
 
-        # print(da_temp.time)
         #### 将bottom_top坐标换成气压坐标 
-        # da_temp = ds_temp.temp
         time_coord = da_temp.time.values
         lat_coord = da_temp.lat.values
         lon_coord = da_temp.lon.values
@@ -120,15 +118,8 @@ class Draw():
         # ax.gca().invert_yaxix()
         plt.gca().invert_yaxis()
 
-        # y_label = np.arange(550,400)
-        # ax.set_ylim(550,400)
-        # ax.set_yticks(y_label)
-        # ax.set_yticklabels(y_label)
         ax.set_yticks(y[::5])
         ax.set_yticklabels(y[::5])
-        # ax.yaxis.set_minor_locator(MultipleLocator(200))  # 画纵坐标副坐标
-        # ax.tick_params(which='major',length=8,width=1.0) # 控制标签大小 
-        # ax.tick_params(which='minor',length=4,width=0.5)  #,colors='b')
         ax.set_title(self.name['title'])
 
         # ## 设置标签名称
@@ -137,13 +128,14 @@ class Draw():
 
         fig.savefig(fig_name,bbox_inches = 'tight')
 
+class Main()
 
 if __name__ == '__main__':
 
 
     station={'lat':32.3, 'lon':84.0, 'name':'GaiZe'}
     # station={'lat':30.56, 'lon':88.42, 'name':'ShenZha'}
-    # pressure_level = np.arange(300, 600+1, 25)
+
     pressure_level = np.arange(300, 550+1, 5)
     var = 'temp'
     month = 'Jul'
@@ -158,9 +150,12 @@ if __name__ == '__main__':
     ds_var = xr.open_dataset(flnm_var)
     da_var = ds_var[var]
 
+
     Re = Regrid()
     da_var = Re.regrid(da_var, station, pressure_level)
 
+
+    # print(da_var)
     fig_path = '/home/fengxiang/Project/Asses_PBL/Draw/UPAR/'
     fig_name = os.path.join(fig_path, str(model)+"_"+station['name'])
     title = str(model)+'_'+str(station['name'])
