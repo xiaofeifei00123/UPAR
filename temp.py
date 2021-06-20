@@ -29,6 +29,7 @@ from wrf import getvar, vinterp, interplevel
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator,FormatStrFormatter
 import cmaps 
+from get_cmap import get_cmap_temp
 class Regrid():
 
     def get_pressure_lev(self, ):
@@ -90,12 +91,13 @@ class Draw():
     def draw_main(self,):
         fig = plt.figure(figsize=(7,4.5), dpi=400)
         ax = fig.add_axes([0.12,0.01,0.85,0.9])
-        self.draw_contourf(ax, fig)
+        # self.draw_contourf_all(ax, fig) ## 所有时次
+        self.draw_contourf_single(ax, fig) ## 单个时次
         # self.draw_barb(ax,fig)
         fig.savefig(self.name['fig_name'])
         pass
 
-    def draw_contourf(self, ax, fig):
+    def draw_contourf_all(self, ax, fig):
 
         val = self.var
         # print(val)
@@ -131,22 +133,51 @@ class Draw():
 
         fig.savefig(fig_name,bbox_inches = 'tight')
 
+    def draw_contourf_single(self, ax, fig):
+
+        val = self.var
+        # print(val)
+        x = val.time  # 各行的名称
+        y = val.pressure.values
+
+        time_index = pd.date_range(start='20160702 00', end='20160731 00', freq='24H')
+        x = time_index
+        val = val.sel(time=time_index)
+
+        val = val.values.swapaxes(0,1)  # 转置矩阵
+        color_map = get_cmap_temp()
+
+        level = np.arange(-19, 20, 3)
+        CS = ax.contourf(x,y,val,levels=level, cmap=color_map, extend='both')
+        cb = fig.colorbar(CS, orientation='horizontal', shrink=0.8, pad=0.14, fraction=0.14) # 这里的cs是画填色图返回的对象
+        ## 设置标签大小
+        ax.set_xticks(x[::2])  # 这个是选择哪几个坐标画上来的了,都有只是显不显示
+        ax.set_xticklabels(x[::2].strftime('%m%d'))
+
+        plt.gca().invert_yaxis()
+
+        # ax.set_yticks(y[::5])
+        # ax.set_yticklabels(y[::5])
+        ax.set_ylim(600,300)
+        ax.set_title(self.name['title'])
+
+        # ## 设置标签名称
+        ax.set_xlabel("Time(UTC, day)", fontsize=14)
+        ax.set_ylabel("Pressure (hPa)", fontsize=14)
+
+        fig.savefig(fig_name,bbox_inches = 'tight')
 class Get_data():
     """
-    读取，并传递需要插值的数据
-    文件就是很多的
-    5+1个试验
-    3个变量
-    2个月
+    读取，处理数据
     """
     def get_data_single():
         """读取单个变量的文件
         """
         pass
         station={
-            'GaiZe':{'lat':32.3, 'lon':84.0, 'name':'GaiZe','number':'55248'},
-            'SheZha':{'lat':30.9, 'lon':88.7, 'name':'SheZha', 'number':'55472'},
-            'ShiQuanhe':{'lat':32.4, 'lon':80.1, 'name':'GaiZe', 'number':'55228'},
+            # 'GaiZe':{'lat':32.3, 'lon':84.0, 'name':'GaiZe','number':'55248'},
+            # 'ShenZha':{'lat':30.9, 'lon':88.7, 'name':'SheZha', 'number':'55472'},
+            'ShiQuanhe':{'lat':32.4, 'lon':80.1, 'name':'ShiQuanhe', 'number':'55228'},
         }
 
 
@@ -176,7 +207,7 @@ if __name__ == '__main__':
     ## 站点
     station={
         'GaiZe':{'lat':32.3, 'lon':84.0, 'name':'GaiZe','number':'55248'},
-        'SheZha':{'lat':30.9, 'lon':88.7, 'name':'SheZha', 'number':'55472'},
+        'ShenZha':{'lat':30.9, 'lon':88.7, 'name':'ShenZha', 'number':'55472'},
         'ShiQuanhe':{'lat':32.4, 'lon':80.1, 'name':'ShiQuanhe', 'number':'55228'},
     }
     var = 'temp'  # 先就处理温度, 后面的数据是需要处理得到的
