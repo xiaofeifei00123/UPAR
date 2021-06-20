@@ -2,10 +2,13 @@
 # -*- encoding: utf-8 -*-
 '''
 Description:
-读temp
+单变量的插值和绘图
+读temp, td, u, v
 读pressure
 并插值到站点上
 垂直插值+水平插值
+画一个站点的图
+每天所有时次的
 
 600, 590, 580, 570, 560, 550, 540, 530, 520, 510, 500,
 475, 450, 425, 400, 350, 300, 200, 100
@@ -128,39 +131,80 @@ class Draw():
 
         fig.savefig(fig_name,bbox_inches = 'tight')
 
-class Main():
-    pass
+class Get_data():
+    """
+    读取，并传递需要插值的数据
+    文件就是很多的
+    5+1个试验
+    3个变量
+    2个月
+    """
+    def get_data_single():
+        """读取单个变量的文件
+        """
+        pass
+        station={
+            'GaiZe':{'lat':32.3, 'lon':84.0, 'name':'GaiZe','number':'55248'},
+            'SheZha':{'lat':30.9, 'lon':88.7, 'name':'SheZha', 'number':'55472'},
+            'ShiQuanhe':{'lat':32.4, 'lon':80.1, 'name':'GaiZe', 'number':'55228'},
+        }
+
+
+        # pressure_level = np.arange(300, 550+1, 5)
+        pressure_level = [600, 575, 550, 525, 500, 450, 400, 350, 300, 250, 200, 150, 100]
+        # var_dic = {}
+        var = 'temp'
+        month = 'Jul'
+        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF']
+        model = model_list[0]
+
+        path = '/mnt/zfm_18T/Asses_PBL/wrfout_data/'
+        # flnm_temp = os.path.join(path, 'temp_Jul_YSU_latlon')
+        file_name = str(var)+"_"+str(month)+"_"+str(model)+"_latlon"
+        flnm_var = os.path.join(path, file_name)
+
+        ds_var = xr.open_dataset(flnm_var)
+        da_var = ds_var[var]
+
 
 if __name__ == '__main__':
 
 
-    station={'lat':32.3, 'lon':84.0, 'name':'GaiZe'}
-    # station={'lat':30.56, 'lon':88.42, 'name':'ShenZha'}
-
-    pressure_level = np.arange(300, 550+1, 5)
-    var = 'temp'
-    month = 'Jul'
+    # station={'lat':32.3, 'lon':84.0, 'name':'GaiZe'}
+    #### 循环出需要进行处理的单个试验
+    pressure_level = [600, 575, 550, 525, 500, 450, 400, 350, 300, 250, 200, 150, 100]
+    ## 站点
+    station={
+        'GaiZe':{'lat':32.3, 'lon':84.0, 'name':'GaiZe','number':'55248'},
+        'SheZha':{'lat':30.9, 'lon':88.7, 'name':'SheZha', 'number':'55472'},
+        'ShiQuanhe':{'lat':32.4, 'lon':80.1, 'name':'ShiQuanhe', 'number':'55228'},
+    }
+    var = 'temp'  # 先就处理温度, 后面的数据是需要处理得到的
+    month = 'Jul'  # 后面进行循环即可
     model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF']
     model = model_list[0]
 
     path = '/mnt/zfm_18T/Asses_PBL/wrfout_data/'
-    # flnm_temp = os.path.join(path, 'temp_Jul_YSU_latlon')
-    file_name = str(var)+"_"+str(month)+"_"+str(model)+"_latlon"
-    flnm_var = os.path.join(path, file_name)
-
-    ds_var = xr.open_dataset(flnm_var)
-    da_var = ds_var[var]
+    for key in station:
 
 
-    Re = Regrid()
-    da_var = Re.regrid(da_var, station, pressure_level)
+        # flnm_temp = os.path.join(path, 'temp_Jul_YSU_latlon')
+        file_name = str(var)+"_"+str(month)+"_"+str(model)+"_latlon"
+        flnm_var = os.path.join(path, file_name)
+
+        ds_var = xr.open_dataset(flnm_var)
+        da_var = ds_var[var]
+
+        Re = Regrid()
+        da_var = Re.regrid(da_var, station[key], pressure_level)
+        # print(da_var)
 
 
-    # print(da_var)
-    fig_path = '/home/fengxiang/Project/Asses_PBL/Draw/UPAR/'
-    fig_name = os.path.join(fig_path, str(model)+"_"+station['name'])
-    title = str(model)+'_'+str(station['name'])
-    name = {'fig_name':fig_name, 'title':title}
+        # # print(da_var)
+        fig_path = '/home/fengxiang/Project/Asses_PBL/Draw/UPAR/'
+        fig_name = os.path.join(fig_path, str(model)+"_"+station[key]['name'])
+        title = str(model)+'_'+str(station[key]['name'])
+        name = {'fig_name':fig_name, 'title':title}
 
-    Dr = Draw(da_var, name)
-    Dr.draw_main()
+        Dr = Draw(da_var, name)
+        Dr.draw_main()
