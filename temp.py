@@ -128,7 +128,8 @@ class Draw():
 
         fig.savefig(fig_name,bbox_inches = 'tight')
 
-class Main()
+class Main():
+    pass
 
 if __name__ == '__main__':
 
