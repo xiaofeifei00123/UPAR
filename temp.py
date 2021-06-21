@@ -61,7 +61,7 @@ class Get_data():
         # model = model_list[0]
 
         path = '/mnt/zfm_18T/Asses_PBL/wrfout_data/'
-        station = station_dic['GaiZe']
+        # station = station_dic['GaiZe']
 
         model_dic = {}
         for model in model_list:
@@ -76,17 +76,95 @@ class Get_data():
             da_var = Re.regrid(da_var, station, pressure_level)
             model_dic[model] = da_var
         return model_dic
-    
-    def get_data_main(var):
+
+    def get_data_single_once(self, var, flnm_var, station):
+        '''单个变量，单个试验的数据读取'''
+        pass
+        pressure_level = [600, 575, 550, 525, 500, 450, 400, 350, 300, 250, 200, 150, 100]
+
+        ds_var = xr.open_dataset(flnm_var)
+        da_var = ds_var[var]
+
+        Re = Regrid()
+        da_var = Re.regrid(da_var, station, pressure_level)
+        return da_var
+        # model_dic[model] = da_var
+        # return model_dic
+
+
+    def get_data_t_td(self, station):
+        pass    
+        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF']
+        var1 = 'temp'  # 先就处理温度, 后面的数据是需要处理得到的
+        var2 = 'td'  # 先就处理温度, 后面的数据是需要处理得到的
+        month = 'Jul'
+        model_dic = {}
+        for model in model_list:
+            pass
+            path = '/mnt/zfm_18T/Asses_PBL/wrfout_data/'
+            file_name1 = str(var1)+"_"+str(month)+"_"+str(model)+"_latlon"
+            flnm_var1 = os.path.join(path, file_name1)
+            file_name2 = str(var2)+"_"+str(month)+"_"+str(model)+"_latlon"
+            flnm_var2 = os.path.join(path, file_name2)
+            temp = self.get_data_single_once(var1, flnm_var1, station)
+            td = self.get_data_single_once(var2, flnm_var2, station)
+            model_dic[model] = temp-td
+        return model_dic
+
+
+    def get_data_wind(self, station):
+        pass    
+        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF']
+        var1 = 'U'  # 先就处理温度, 后面的数据是需要处理得到的
+        var2 = 'V'  # 先就处理温度, 后面的数据是需要处理得到的
+        month = 'Jul'
+        model_dic = {}
+        for model in model_list:
+            pass
+            path = '/mnt/zfm_18T/Asses_PBL/wrfout_data/'
+            file_name1 = str(var1)+"_"+str(month)+"_"+str(model)+"_latlon"
+            flnm_var1 = os.path.join(path, file_name1)
+            file_name2 = str(var2)+"_"+str(month)+"_"+str(model)+"_latlon"
+            flnm_var2 = os.path.join(path, file_name2)
+            U = self.get_data_single_once(var1, flnm_var1, station)
+            V = self.get_data_single_once(var2, flnm_var2, station)
+            model_dic[model] = xr.ufuncs.sqrt(U**2+V**2)
+        return model_dic
+
+    def get_data_temp(self, station):
+        pass    
+        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF']
+        var = 'temp'  # 先就处理温度, 后面的数据是需要处理得到的
+        # var2 = 'V'  # 先就处理温度, 后面的数据是需要处理得到的
+        month = 'Jul'
+        model_dic = {}
+        for model in model_list:
+            pass
+            path = '/mnt/zfm_18T/Asses_PBL/wrfout_data/'
+            file_name = str(var)+"_"+str(month)+"_"+str(model)+"_latlon"
+            flnm_var = os.path.join(path, file_name)
+            temp = self.get_data_single_once(var, flnm_var, station)
+            model_dic[model] = temp
+        return model_dic
+
+
+    def get_data_main(self, var, station):
         pass
         if var == 'temp':
-            da = self.get_data_single()
-        elif var == 't-td':
+            model_dic = self.get_data_temp(station)
+            print(model_dic)
+        elif var == 't_td':
             pass
-        elif var = 'wind':
+            model_dic = self.get_data_t_td(station)
+            print(model_dic)
+        elif var == 'wind':
+            model_dic = self.get_data_wind(station)
+            print(model_dic)
             pass
         elif var == 'grads':   ## 梯度
             pass
+
+        return model_dic
 
 
 class Regrid():
@@ -157,6 +235,9 @@ class Draw():
             'ShenZha':{'lat':30.9, 'lon':88.7, 'name':'ShenZha', 'number':'55472'},
             'ShiQuanhe':{'lat':32.4, 'lon':80.1, 'name':'ShiQuanhe', 'number':'55228'},
         }
+        # var = 'temp'
+        # var = 't_td'
+        var = 'wind'
         for key in station_dic:
             pass 
             station =  station_dic[key]
@@ -164,21 +245,13 @@ class Draw():
 
         ### 获得数据
             gd = Get_data()
-            model_dic = gd.get_data_single(station)
+            model_dic = gd.get_data_main(var, station)
         # print("yes")
 
         ## 画图
-            bb = self.combine_fig(model_dic, station['name'])
+            bb = self.combine_fig(var, model_dic, station['name'])
 
-        # fig = plt.figure(figsize=(7,4.5), dpi=400)
-        # ax = fig.add_axes([0.12,0.01,0.85,0.9])
-        # self.draw_contourf_all(ax, fig) ## 所有时次
-        # self.draw_contourf_single(ax, fig) ## 单个时次
-        # self.draw_barb(ax,fig)
-        # fig.savefig(self.name['fig_name'])
-        # pass
-
-    def draw_contourf_single(self, ax, val, title):
+    def draw_contourf_single(self, var, ax, val, title, time_index):
         """[summary]
 
         Args:
@@ -190,14 +263,24 @@ class Draw():
         x = val.time  # 各行的名称
         y = val.pressure.values
 
-        time_index = pd.date_range(start='20160702 00', end='20160731 00', freq='24H')
+        # time_index1 = pd.date_range(start='20160702 00', end='20160731 00', freq='24H')
+        # time_index2 = pd.date_range(start='20160702 00', end='20160731 00', freq='24H')
+        # time_index_dic = {'00':time_index1, '12':time_index2}
+        # for key in time_index_dic:
         x = time_index
+        # time_index = time_index['data']
         val = val.sel(time=time_index)
 
         val = val.values.swapaxes(0,1)  # 转置矩阵
         color_map = get_cmap_temp()
 
-        level = np.arange(-19, 20, 3)
+        if var == 'temp':
+            level = np.arange(-19, 20, 3)
+        elif var == 't_td':
+            level = np.arange(0, 15, 1)
+        elif var == 'wind':
+            level = np.arange(0, 15, 1)
+
         CS = ax.contourf(x,y,val,levels=level, cmap=color_map, extend='both')
         # cb = fig.colorbar(CS, orientation='horizontal', shrink=0.8, pad=0.14, fraction=0.14) # 这里的cs是画填色图返回的对象
         ## 设置标签大小
@@ -213,7 +296,7 @@ class Draw():
         # fig.savefig(fig_name,bbox_inches = 'tight')
         return CS
 
-    def combine_fig(self, model_dic, station_name):
+    def combine_fig(self, var, model_dic, station_name):
         """[summary]
 
         Args:
@@ -230,8 +313,8 @@ class Draw():
                             right=0.98,
                             bottom=0.18,
                             top=0.95,
-                            wspace=0.2,
-                            hspace=0.21)
+                            wspace=0.3,
+                            hspace=0.3)
 
         axes = [None] * 6  # 设置一个维度为8的空列表
         axes[0] = fig.add_subplot(grid[0, 0:1])
@@ -242,27 +325,42 @@ class Draw():
 
         model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF']
 
+        time_index1 = pd.date_range(start='20160702 00', end='20160731 00', freq='24H')
+        time_index2 = pd.date_range(start='20160702 12', end='20160731 12', freq='24H')
+        # time_index_dic = {'00':{'data':time_index1, 'name':'00'},
+                            #  '12':{'data':time_index2, 'name':'12'}}
+
+        # time_index_dic = {'00':time_index1, '12':time_index2}
+        time_index_dic = {'00':time_index1}
+        # time_index_dic = {'12':time_index2}
+        
         # for model in model_list:
-        for i in range(len(model_list)):
-            title = str(station_name)+model_list[i]
-            CS = self.draw_contourf_single(axes[i], model_dic[model_list[i]], title)
-        # CS = self.draw_contourf_single(axes[1], model_dic['ACM2'])
-        # CS = self.draw_contourf_single(axes[2], model_dic['ACM2'])
-        # CS = self.draw_contourf_single(axes[3], model_dic['ACM2'])
-        # CS = self.draw_contourf_single(axes[4], model_dic['ACM2'])
+        for key in time_index_dic:
+            time_index = time_index_dic[key]
+            CS = None
+            for i in range(len(model_list)):
+                title = str(station_name)+model_list[i]+str(key)
+                CS = self.draw_contourf_single(var, axes[i], model_dic[model_list[i]], title, time_index)
 
-        cb = fig.colorbar(CS, orientation='horizontal', shrink=0.8, pad=0.14, fraction=0.14) # 这里的cs是画填色图返回的对象
+            cb = fig.colorbar(CS, orientation='horizontal', shrink=0.8, pad=0.14, fraction=0.14) # 这里的cs是画填色图返回的对象
 
-        path = '/home/fengxiang/Project/Asses_PBL/Draw'
-        fig_name = os.path.join(path, str(station_name))
-        # fig.savefig('/home/fengxiang/Project/Asses_PBL/Draw/tt.png')
-        fig.savefig(fig_name)
+            path = '/home/fengxiang/Project/Asses_PBL/Draw/UPAR/'
+            fig_name = os.path.join(path, str(var)+"_"+str(station_name)+"_"+str(key))
+            # fig.savefig('/home/fengxiang/Project/Asses_PBL/Draw/tt.png')
+            fig.savefig(fig_name)
 
 
 
 if __name__ == '__main__':
 
     pass
-
+    station_dic={
+        'GaiZe':{'lat':32.3, 'lon':84.0, 'name':'GaiZe','number':'55248'},
+        'ShenZha':{'lat':30.9, 'lon':88.7, 'name':'ShenZha', 'number':'55472'},
+        'ShiQuanhe':{'lat':32.4, 'lon':80.1, 'name':'ShiQuanhe', 'number':'55228'},
+    }
+    station = station_dic['GaiZe']
+    # gd = Get_data()
+    # aa = gd.get_data_main('temp', station)
     Dr = Draw()
     Dr.draw_main()
