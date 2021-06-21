@@ -38,6 +38,62 @@ class Upar():
     def __init__(var):
         pass
 
+class Get_obs():
+
+    def read_single(self, flnm):
+        pass
+        """这里出现的这些问题，都是由于自己对pandas库不熟悉所导致的，
+        我希望自己的工作，不仅仅是打工者的角色, 要做到更多更好一点才好
+        """
+        col_names = ['pressure', 'height', 'temp', 'td', 'wind_d', 'wind_s']
+        ## 按列数据, 要哪几列的数据, 再命名
+        df = pd.read_table(flnm,
+                            sep=' ',
+                        #  skiprows=0,
+                        usecols=[26, 27, 29, 30, 32, 33],
+                        names=col_names)
+
+        df1 = df.where(df<9999,np.nan)  # 将缺省值赋值为NaN
+        df2 = df1.dropna(axis=0, subset=['pressure'])  # 将含有缺省值的行删掉
+        df2 = df2.dropna(axis=0, subset=['temp'])
+        ##　这里是导致自己花了大量时间的原因
+        df3 = df2.drop_duplicates('pressure', 'first', inplace=True)  # 将preuusre这一列中，含有相同值的取第一个，其他删掉
+        df3 = df2.set_index(['pressure'], inplace=True)  # 将pressure这一列设为index
+        df3 = df2.sort_values('pressure')   # 按照某一列排序
+        ds = xr.Dataset.from_dataframe(df3)
+        pressure_level = [
+            600, 575, 550, 525, 500, 450, 400, 350, 300, 250, 200, 150, 100
+        ]
+        cc = ds.interp(pressure=pressure_level)
+        return cc
+
+    def read_obs(self, station):
+        number = station['number']
+        # path = "/mnt/zfm_18T/Asses_PBL/GPS_Upar_2016/SCEX_TIPEX3_UPAR_GPS_MUL_55228-201607/"
+        path1 = "/mnt/zfm_18T/Asses_PBL/GPS_Upar_2016/SCEX_TIPEX3_UPAR_GPS_MUL_"
+        path = path1+str(number)+"-201607"
+
+        aa = os.listdir(path)  # 文件名列表
+        # print(type(aa))
+        aa.sort()  # 排一下顺序，这个是对列表本身进行操作
+
+        ds_time = []  # 每个时次变量的列表
+        ttt = []   # 时间序列列表
+        for flnm in aa:
+
+            fl_time = flnm[-14:-4]
+            tt = pd.to_datetime(fl_time, format='%Y%m%d%H')
+            ttt.append(tt)
+            ## 这时间是不规则的
+            flnm = os.path.join(path, flnm)
+
+            aa = self.read_single(flnm)
+            ds_time.append(aa)
+
+        ds = xr.concat(ds_time,dim='time')
+        ds.coords['time'] = ttt
+        # print(ds['temp'])
+        return ds
 
 class Get_data():
     """
@@ -188,7 +244,7 @@ class Get_data():
         """
         pass
         # print("yes")
-        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF']
+        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF', 'obs']
         dic_return = {}
         for model in model_list:
             ser = []
@@ -214,31 +270,42 @@ class Get_data():
 
     def get_data_main(self, var, station):
         pass
+        gb = Get_obs()
+        ds_obs = gb.read_obs(station)  # 观测数据
         if var == 'temp':
             model_dic = self.get_data_temp(station)
+            model_dic['obs'] = ds_obs['temp']
             print(model_dic)
         elif var == 't_td':
             pass
             model_dic = self.get_data_t_td(station)
+            model_dic['obs'] = ds_obs['temp'] - ds_obs['td']
             print(model_dic)
         elif var == 'wind':
             model_dic = self.get_data_wind(station)
+            model_dic['obs'] = ds_obs['wind_s']
             print(model_dic)
             pass
         elif var == 'temp_grads':  ## 梯度
             model_dic = self.get_data_temp(station)
+            model_dic['obs'] = ds_obs['temp']
+
             model_dic = self.grads_data(model_dic)
             print(model_dic)
             pass
 
         elif var == 't_td_grads':  ## 梯度
             model_dic = self.get_data_t_td(station)
+            model_dic['obs'] = ds_obs['temp'] - ds_obs['td']
+
             model_dic = self.grads_data(model_dic)
             print(model_dic)
             pass
 
         elif var == 'wind_grads':  ## 梯度
             model_dic = self.get_data_wind(station)
+            model_dic['obs'] = ds_obs['wind_s']
+
             model_dic = self.grads_data(model_dic)
             print(model_dic)
             pass
