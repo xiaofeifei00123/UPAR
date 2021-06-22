@@ -30,6 +30,7 @@ import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 import cmaps
 from get_cmap import get_cmap_temp
+import datetime
 
 
 class Upar():
@@ -38,8 +39,8 @@ class Upar():
     def __init__(var):
         pass
 
-class Get_obs():
 
+class Get_obs():
     def read_single(self, flnm):
         pass
         """这里出现的这些问题，都是由于自己对pandas库不熟悉所导致的，
@@ -47,19 +48,21 @@ class Get_obs():
         """
         col_names = ['pressure', 'height', 'temp', 'td', 'wind_d', 'wind_s']
         ## 按列数据, 要哪几列的数据, 再命名
-        df = pd.read_table(flnm,
-                            sep=' ',
-                        #  skiprows=0,
-                        usecols=[26, 27, 29, 30, 32, 33],
-                        names=col_names)
+        df = pd.read_table(
+            flnm,
+            sep=' ',
+            #  skiprows=0,
+            usecols=[26, 27, 29, 30, 32, 33],
+            names=col_names)
 
-        df1 = df.where(df<9999,np.nan)  # 将缺省值赋值为NaN
+        df1 = df.where(df < 9999, np.nan)  # 将缺省值赋值为NaN
         df2 = df1.dropna(axis=0, subset=['pressure'])  # 将含有缺省值的行删掉
         df2 = df2.dropna(axis=0, subset=['temp'])
         ##　这里是导致自己花了大量时间的原因
-        df3 = df2.drop_duplicates('pressure', 'first', inplace=True)  # 将preuusre这一列中，含有相同值的取第一个，其他删掉
+        df3 = df2.drop_duplicates(
+            'pressure', 'first', inplace=True)  # 将preuusre这一列中，含有相同值的取第一个，其他删掉
         df3 = df2.set_index(['pressure'], inplace=True)  # 将pressure这一列设为index
-        df3 = df2.sort_values('pressure')   # 按照某一列排序
+        df3 = df2.sort_values('pressure')  # 按照某一列排序
         ds = xr.Dataset.from_dataframe(df3)
         pressure_level = [
             600, 575, 550, 525, 500, 450, 400, 350, 300, 250, 200, 150, 100
@@ -71,14 +74,14 @@ class Get_obs():
         number = station['number']
         # path = "/mnt/zfm_18T/Asses_PBL/GPS_Upar_2016/SCEX_TIPEX3_UPAR_GPS_MUL_55228-201607/"
         path1 = "/mnt/zfm_18T/Asses_PBL/GPS_Upar_2016/SCEX_TIPEX3_UPAR_GPS_MUL_"
-        path = path1+str(number)+"-201607"
+        path = path1 + str(number) + "-201607"
 
         aa = os.listdir(path)  # 文件名列表
         # print(type(aa))
         aa.sort()  # 排一下顺序，这个是对列表本身进行操作
 
         ds_time = []  # 每个时次变量的列表
-        ttt = []   # 时间序列列表
+        ttt = []  # 时间序列列表
         for flnm in aa:
 
             fl_time = flnm[-14:-4]
@@ -90,10 +93,11 @@ class Get_obs():
             aa = self.read_single(flnm)
             ds_time.append(aa)
 
-        ds = xr.concat(ds_time,dim='time')
+        ds = xr.concat(ds_time, dim='time')
         ds.coords['time'] = ttt
         # print(ds['temp'])
         return ds
+
 
 class Get_data():
     """
@@ -197,7 +201,6 @@ class Get_data():
             model_dic[model] = temp - td
         return model_dic
 
-
     def get_data_wind(self, station):
         pass
         model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF']
@@ -253,20 +256,22 @@ class Get_data():
             ## 第0层是600hPa
             for i in range(len(pressure)):
                 if i == 0:
-                    sr = (da[:,i+1]-da[:,i])/(pressure[i+1]-pressure[i])  # 边界上使用前差或后差
+                    sr = (da[:, i + 1] - da[:, i]) / (
+                        pressure[i + 1] - pressure[i])  # 边界上使用前差或后差
                     ser.append(sr)
-                elif i>0 and i<len(pressure)-1:
-                    sr = (da[:,i+1]-da[:,i-1])/(pressure[i]-pressure[i-1])/2   # 中间的使用中央差分
+                elif i > 0 and i < len(pressure) - 1:
+                    sr = (da[:, i + 1] - da[:, i - 1]) / (
+                        pressure[i] - pressure[i - 1]) / 2  # 中间的使用中央差分
                     ser.append(sr)
-                elif i==len(pressure)-1:
+                elif i == len(pressure) - 1:
                     pass
-                    sr = (da[:,i]-da[:,i-1])/(pressure[i]-pressure[i-1])
+                    sr = (da[:, i] - da[:, i - 1]) / (pressure[i] -
+                                                      pressure[i - 1])
                     ser.append(sr)
             da = xr.concat(ser, 'pressure')
             da.coords['pressure'] = pressure
             dic_return[model] = da
         return dic_return
-
 
     def get_data_main(self, var, station):
         pass
@@ -377,7 +382,7 @@ class Draw():
         # self.station = station
         pass
 
-    def draw_main(self, ):
+    def draw_main(self, station_dic, var):
 
         station_dic = {
             'GaiZe': {
@@ -401,7 +406,7 @@ class Draw():
         }
         # var = 'temp'
         # var = 't_td'
-        var = 'wind'
+        # var = 'wind'
         for key in station_dic:
             pass
             station = station_dic[key]
@@ -453,7 +458,9 @@ class Draw():
         # cb = fig.colorbar(CS, orientation='horizontal', shrink=0.8, pad=0.14, fraction=0.14) # 这里的cs是画填色图返回的对象
         ## 设置标签大小
         ax.set_xticks(x[::2])  # 这个是选择哪几个坐标画上来的了,都有只是显不显示
-        ax.set_xticklabels(x[::2].strftime('%m%d'))
+        xlabel = x[::2].dt.strftime('%m%d').values
+        # ax.set_xticklabels(x[::2].dt.strftime('%m%d'))
+        ax.set_xticklabels(xlabel)
 
         plt.gca().invert_yaxis()
         ax.set_ylim(600, 300)
@@ -490,44 +497,57 @@ class Draw():
         axes[2] = fig.add_subplot(grid[1, 0:1])
         axes[3] = fig.add_subplot(grid[1, 1:2])
         axes[4] = fig.add_subplot(grid[2, 0:1])
+        axes[5] = fig.add_subplot(grid[2, 1:2])
 
-        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF']
+        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF','obs']
 
-        time_index1 = pd.date_range(start='20160702 00',
-                                    end='20160731 00',
-                                    freq='24H')
-        time_index2 = pd.date_range(start='20160702 12',
-                                    end='20160731 12',
-                                    freq='24H')
-        # time_index_dic = {'00':{'data':time_index1, 'name':'00'},
-        #  '12':{'data':time_index2, 'name':'12'}}
+        # time_index1 = pd.date_range(start='20160702 00',
+        #                             end='20160731 00',
+        #                             freq='24H')
+        # time_index2 = pd.date_range(start='20160702 12',
+        #                             end='20160731 12',
+        #                             freq='24H')
+        # # time_index_dic = {'00':{'data':time_index1, 'name':'00'},
+        # #  '12':{'data':time_index2, 'name':'12'}}
 
-        # time_index_dic = {'00':time_index1, '12':time_index2}
-        time_index_dic = {'00': time_index1}
-        # time_index_dic = {'12':time_index2}
+        # # time_index_dic = {'00':time_index1, '12':time_index2}
+        # time_index_dic = {'00': time_index1}
+        # # time_index_dic = {'12':time_index2}
 
+        ax6 = fig.add_axes([0.18, 0.06, 0.7, 0.02])  # 重新生成一个新的坐标图
+        keys = ['00', '12']
         # for model in model_list:
-        for key in time_index_dic:
-            time_index = time_index_dic[key]
-            CS = None
-            for i in range(len(model_list)):
+        for i in range(len(model_list)):
+            for key in keys:
+                time_index = model_dic[model_list[i]].time.sel(time=datetime.time(int(key)))
+                # time_index = time_index_dic[key]
+                CS = None
+                # time_index = model_dic[model_list[i]].time.sel(time=datetime.time(12))
                 title = str(station_name) + model_list[i] + str(key)
                 CS = self.draw_contourf_single(var, axes[i],
-                                               model_dic[model_list[i]], title,
-                                               time_index)
+                                                model_dic[model_list[i]], title,
+                                                time_index)
+            
+            # time_index = model_dic['obs'].time.sel(time=datetime.time(12))
+            # print(time_index)
+            # print(type(time_index))
+            # CS = self.draw_contourf_single(var, axes[5],
+            #                                 model_dic[model_list[5]], title,
+            #                                 time_index)
 
-            cb = fig.colorbar(CS,
-                              orientation='horizontal',
-                              shrink=0.8,
-                              pad=0.14,
-                              fraction=0.14)  # 这里的cs是画填色图返回的对象
+        cb = fig.colorbar(CS,
+                            cax=ax6,
+                            orientation='horizontal',
+                            shrink=0.8,
+                            pad=0.14,
+                            fraction=0.14)  # 这里的cs是画填色图返回的对象
 
-            path = '/home/fengxiang/Project/Asses_PBL/Draw/UPAR/'
-            fig_name = os.path.join(
-                path,
-                str(var) + "_" + str(station_name) + "_" + str(key))
-            # fig.savefig('/home/fengxiang/Project/Asses_PBL/Draw/tt.png')
-            fig.savefig(fig_name)
+        path = '/home/fengxiang/Project/Asses_PBL/Draw/UPAR/picture/'
+        fig_name = os.path.join(
+            path,
+            str(var) + "_" + str(station_name) + "_" + str(key))
+        # fig.savefig('/home/fengxiang/Project/Asses_PBL/Draw/tt.png')
+        fig.savefig(fig_name)
 
 
 if __name__ == '__main__':
@@ -554,7 +574,10 @@ if __name__ == '__main__':
         },
     }
     station = station_dic['GaiZe']
-    gd = Get_data()
-    aa = gd.get_data_main('temp_grads', station)
-    # Dr = Draw()
-    # Dr.draw_main()
+    # gd = Get_data()
+    # aa = gd.get_data_main('temp', station)
+
+    var = 'temp'
+
+    Dr = Draw()
+    Dr.draw_main(station_dic, var)
