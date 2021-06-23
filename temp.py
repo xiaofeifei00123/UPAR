@@ -57,34 +57,37 @@ class Get_obs():
             usecols=[26, 27, 29, 30, 31, 32, 33],
             names=col_names)
 
-        df1 = df.where(df < 300, np.nan)  # 将缺省值赋值为NaN
-        df2 = df1.dropna(axis=0, subset=['pressure'])  # 将含有缺省值的行删掉
+        df1 = df.where(df < 999, np.nan)  # 将缺省值赋值为NaN
+        df1 = df1.dropna(axis=0, subset=['pressure'])  # 将含有缺省值的行删掉
         ##　将preuusre这一列中，含有相同值的取第一个，其他删掉, 共用内存
-        df2.drop_duplicates('pressure', 'first', inplace=True)
-        df2['pressure'] = df2['pressure'].max() - df2['pressure']
-        df2.set_index(['pressure'], inplace=True)  # 将pressure这一列设为index
 
-        df2 = df2.sort_values('pressure')  # 按照某一列排序
-        ## 根据需要的变量不同，以该变量为主
-        ## 将该变量的缺省值设为缺省值，其他变量不变
-        ## 每一次插值仅插值一个变量
-        # df2 = df2.dropna(axis=0, subset=['temp'])
-        # df3 = df2.dropna(axis=0, subset=['wind_s'])
-        # print(type(df3['wind_s']))
+        # ##坐标处理
+        # df2.drop_duplicates('pressure', 'first', inplace=True)
+        # df2['pressure'] = df2['pressure'].max() - df2['pressure']
 
-        # # print(df2['td'])
-        # # df3 = df2['t_td'].dropna()
-        # df4 = df2.dropna(axis=0, subset=['t_td'])
-        # print(df4['td'].size)
-        # print(df3.size)
 
+        # df2.set_index(['pressure'], inplace=True)  # 将pressure这一列设为index
+
+        # df2 = df2.sort_values('pressure')  # 按照某一列排序
+
+        ## 理论上近地层不应该出现缺省值,但是出现了，是为什么呢
+        ## 现在这个第一层是NaN值, 原因是什么
+        ## 因为在第一层两个值取一个的时候，把后面有值的干掉了
 
         da_list = []
         var_list = ['temp', 'td', 't_td','wind_s']
         for var in var_list:
             pass
+            df2 = df1
 
-            df3 = df2.dropna(axis=0, subset=[var])
+            df2 = df2.dropna(axis=0, subset=[var])
+            # print(df3)
+
+            ##坐标处理
+            df2.drop_duplicates('pressure', 'first', inplace=True)
+            df2['pressure'] = df2['pressure'].max() - df2['pressure']
+            df2.set_index(['pressure'], inplace=True)  # 将pressure这一列设为index
+            df3 = df2.sort_values('pressure')  # 按照某一列排序
 
             if var in ['td', 't_td']:
                 if df3['t_td'].size == 0:
@@ -95,12 +98,13 @@ class Get_obs():
                     df3['td'] = da.to_series()
             
             da = xr.DataArray.from_series(df3[var])
+            # print(da.sel(concat_dim='td'))
             dda = da.interp(pressure=pressure_level)
             da_list.append(dda)
             # print(dda)
+            # print(da.sel(concat_dim='td'))
         da_return = xr.concat(da_list, dim=var_list)
         # print(ds)
-        # print(ds.sel(concat_dim='td'))
         return da_return
 
 
@@ -463,11 +467,11 @@ class Draw():
         if var == 'temp':
             level = np.arange(-20, 30, 2.5)
         elif var == 't_td':
-            level = np.arange(0, 25, 1)
+            level = np.arange(0, 30, 1)
         elif var == 'wind':
             level = np.arange(0, 25, 2.5)
         elif var == 'temp_grads':
-            level = np.arange(-0.2, 0.1, 0.01)
+            level = np.arange(-0.3, 0.3, 0.02)
         elif var == 't_td_grads':
             # level = np.arange(0, 0.25, 0.01)
             level = np.arange(-0.25, 0.26, 0.01)
@@ -490,10 +494,11 @@ class Draw():
                          extend='both')
         # cb = fig.colorbar(CS, orientation='horizontal', shrink=0.8, pad=0.14, fraction=0.14) # 这里的cs是画填色图返回的对象
         ## 设置标签大小
-        ax.set_xticks(x[::2])  # 这个是选择哪几个坐标画上来的了,都有只是显不显示
-        xlabel = x[::2].dt.strftime('%m%d').values
-        # ax.set_xticklabels(x[::2].dt.strftime('%m%d'))
-        ax.set_xticklabels(xlabel)
+        # ax.set_xticks(x[::2])  # 这个是选择哪几个坐标画上来的了,都有只是显不显示
+        # xlabel = x[::2].dt.strftime('%m%d').values
+        ax.set_xticks(x)  # 这个是选择哪几个坐标画上来的了,都有只是显不显示
+        xlabel = x.dt.strftime('%d').values
+        ax.set_xticklabels(xlabel, rotation=45)
 
         plt.gca().invert_yaxis()
         # ax.set_ylim(0, 300)
@@ -601,12 +606,13 @@ if __name__ == '__main__':
     # aa = re.get_pressure_lev(station)
     # print(aa.values)
 
-    # # # ## 测试obs插值
+    # ## 测试obs插值
     # gb = Get_obs()
     # aa = gb.read_obs(station)
     # print(aa['wind_s'])
+    # print(aa)
 
-    # #### 最终画图
+    #### 最终画图
     var_list = ['temp', 't_td', 'wind', 'temp_grads', 't_td_grads', 'wind_grads']
     var = var_list[4]
 
