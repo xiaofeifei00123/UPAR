@@ -46,29 +46,90 @@ class Get_obs():
         """这里出现的这些问题，都是由于自己对pandas库不熟悉所导致的，
         我希望自己的工作，不仅仅是打工者的角色, 要做到更多更好一点才好
         """
-        col_names = ['pressure', 'height', 'temp', 'td', 'wind_d', 'wind_s']
+        pressure_level = np.arange(0, 601, 5)
+        # pressure_level = np.arange(0, 601, 25)
+        col_names = ['pressure', 'height', 'temp', 'td','t_td', 'wind_d', 'wind_s']
         ## 按列数据, 要哪几列的数据, 再命名
         df = pd.read_table(
             flnm,
             sep=' ',
             #  skiprows=0,
-            usecols=[26, 27, 29, 30, 32, 33],
+            usecols=[26, 27, 29, 30, 31, 32, 33],
             names=col_names)
 
-        df1 = df.where(df < 9999, np.nan)  # 将缺省值赋值为NaN
+        df1 = df.where(df < 300, np.nan)  # 将缺省值赋值为NaN
         df2 = df1.dropna(axis=0, subset=['pressure'])  # 将含有缺省值的行删掉
-        df2 = df2.dropna(axis=0, subset=['temp'])
-        ##　这里是导致自己花了大量时间的原因
-        df3 = df2.drop_duplicates(
-            'pressure', 'first', inplace=True)  # 将preuusre这一列中，含有相同值的取第一个，其他删掉
-        df3 = df2.set_index(['pressure'], inplace=True)  # 将pressure这一列设为index
-        df3 = df2.sort_values('pressure')  # 按照某一列排序
-        ds = xr.Dataset.from_dataframe(df3)
-        pressure_level = [
-            600, 575, 550, 525, 500, 450, 400, 350, 300, 250, 200, 150, 100
-        ]
-        cc = ds.interp(pressure=pressure_level)
-        return cc
+        ##　将preuusre这一列中，含有相同值的取第一个，其他删掉, 共用内存
+        df2.drop_duplicates('pressure', 'first', inplace=True)
+        df2['pressure'] = df2['pressure'].max() - df2['pressure']
+        df2.set_index(['pressure'], inplace=True)  # 将pressure这一列设为index
+
+        df2 = df2.sort_values('pressure')  # 按照某一列排序
+        ## 根据需要的变量不同，以该变量为主
+        ## 将该变量的缺省值设为缺省值，其他变量不变
+        ## 每一次插值仅插值一个变量
+        # df2 = df2.dropna(axis=0, subset=['temp'])
+        # df3 = df2.dropna(axis=0, subset=['wind_s'])
+        # print(type(df3['wind_s']))
+
+        # # print(df2['td'])
+        # # df3 = df2['t_td'].dropna()
+        # df4 = df2.dropna(axis=0, subset=['t_td'])
+        # print(df4['td'].size)
+        # print(df3.size)
+
+
+        da_list = []
+        var_list = ['temp', 'td', 't_td','wind_s']
+        for var in var_list:
+            pass
+
+            df3 = df2.dropna(axis=0, subset=[var])
+
+            if var in ['td', 't_td']:
+                if df3['t_td'].size == 0:
+                    da = xr.DataArray([np.nan, np.nan], coords=[[0,1]], dims='pressure')
+                    df3['t_td'] = da.to_series()
+                elif df3['td'].size == 0:
+                    da = xr.DataArray([np.nan, np.nan], coords=[[0,1]], dims='pressure')
+                    df3['td'] = da.to_series()
+            
+            da = xr.DataArray.from_series(df3[var])
+            dda = da.interp(pressure=pressure_level)
+            da_list.append(dda)
+            # print(dda)
+        da_return = xr.concat(da_list, dim=var_list)
+        # print(ds)
+        # print(ds.sel(concat_dim='td'))
+        return da_return
+
+
+
+
+
+
+
+
+
+        # # df3 = df2
+        # df4 = df2.dropna(axis=0, subset=['td'])
+        # if df4['t_td'].size == 0:
+        #     da = xr.DataArray([np.nan, np.nan], coords=[[0,1]], dims='pressure')
+        #     df4['t_td'] = da.to_series()
+
+        # da = xr.DataArray.from_series(df4['t_td'])
+        # dda = da.interp(pressure=pressure_level)
+        # # print(dda)
+
+
+
+
+        # ds = xr.Dataset.from_dataframe(df3)
+        # cc = ds.interp(pressure=pressure_level,
+        #                assume_sorted=False,
+        #                method='linear')
+        # # print(cc['wind_s'])
+        # return cc
 
     def read_obs(self, station):
         number = station['number']
@@ -95,7 +156,7 @@ class Get_obs():
 
         ds = xr.concat(ds_time, dim='time')
         ds.coords['time'] = ttt
-        # print(ds['temp'])
+        # print(ds.sel(concat_dim='t_td'))
         return ds
 
 
@@ -106,70 +167,13 @@ class Get_data():
     def __init__(self, ):
         pass
 
-    def get_data_single(self,
-                        station={
-                            'lat': 32.4,
-                            'lon': 80.1,
-                            'name': 'ShiQuanhe',
-                            'number': '55228'
-                        }):
-        """读取单个变量,5次wrf试验的数据
-        """
-        # station={'lat':32.3, 'lon':84.0, 'name':'GaiZe'}
-        #### 循环出需要进行处理的单个试验
-        pressure_level = [
-            600, 575, 550, 525, 500, 450, 400, 350, 300, 250, 200, 150, 100
-        ]
-        ## 站点
-        station_dic = {
-            'GaiZe': {
-                'lat': 32.3,
-                'lon': 84.0,
-                'name': 'GaiZe',
-                'number': '55248'
-            },
-            'ShenZha': {
-                'lat': 30.9,
-                'lon': 88.7,
-                'name': 'ShenZha',
-                'number': '55472'
-            },
-            'ShiQuanhe': {
-                'lat': 32.4,
-                'lon': 80.1,
-                'name': 'ShiQuanhe',
-                'number': '55228'
-            },
-        }
-        var = 'temp'  # 先就处理温度, 后面的数据是需要处理得到的
-        month = 'Jul'  # 后面进行循环即可
-        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF']
-        # model = model_list[0]
-
-        path = '/mnt/zfm_18T/Asses_PBL/wrfout_data/'
-        # station = station_dic['GaiZe']
-
-        model_dic = {}
-        for model in model_list:
-            # flnm_temp = os.path.join(path, 'temp_Jul_YSU_latlon')
-            file_name = str(var) + "_" + str(month) + "_" + str(
-                model) + "_latlon"
-            flnm_var = os.path.join(path, file_name)
-
-            ds_var = xr.open_dataset(flnm_var)
-            da_var = ds_var[var]
-
-            Re = Regrid()
-            da_var = Re.regrid(da_var, station, pressure_level)
-            model_dic[model] = da_var
-        return model_dic
-
     def get_data_single_once(self, var, flnm_var, station):
         '''单个变量，单个试验的数据读取'''
         pass
-        pressure_level = [
-            600, 575, 550, 525, 500, 450, 400, 350, 300, 250, 200, 150, 100
-        ]
+        # pressure_level = [
+        #     600, 575, 550, 525, 500, 450, 400, 350, 300, 250, 200, 150, 100
+        # ]
+        pressure_level = np.arange(0, 601, 25)
 
         ds_var = xr.open_dataset(flnm_var)
         da_var = ds_var[var]
@@ -274,6 +278,7 @@ class Get_data():
             da = da.transpose()
 
             dic_return[model] = da
+            # print(dic_return)
         return dic_return
 
     def get_data_main(self, var, station):
@@ -282,21 +287,26 @@ class Get_data():
         ds_obs = gb.read_obs(station)  # 观测数据
         if var == 'temp':
             model_dic = self.get_data_temp(station)
-            model_dic['obs'] = ds_obs['temp']
-            print(model_dic)
+        # print(ds.sel(concat_dim='t_td'))
+            # model_dic['obs'] = ds_obs['temp']
+            model_dic['obs'] = ds_obs.sel(concat_dim='temp')
+            # print(model_dic)
         elif var == 't_td':
             pass
             model_dic = self.get_data_t_td(station)
-            model_dic['obs'] = ds_obs['temp'] - ds_obs['td']
-            print(model_dic)
+            # model_dic['obs'] = ds_obs['temp'] - ds_obs['td']
+            model_dic['obs'] = ds_obs.sel(concat_dim='t_td')
+            # print(model_dic)
         elif var == 'wind':
             model_dic = self.get_data_wind(station)
-            model_dic['obs'] = ds_obs['wind_s']
-            print(model_dic)
+            # model_dic['obs'] = ds_obs['wind_s']
+            model_dic['obs'] = ds_obs.sel(concat_dim='wind_s')
+            # print(model_dic)
             pass
         elif var == 'temp_grads':  ## 梯度
             model_dic = self.get_data_temp(station)
-            model_dic['obs'] = ds_obs['temp']
+            # model_dic['obs'] = ds_obs['temp']
+            model_dic['obs'] = ds_obs.sel(concat_dim='temp')
 
             model_dic = self.grads_data(model_dic)
             # print(model_dic)
@@ -304,18 +314,20 @@ class Get_data():
 
         elif var == 't_td_grads':  ## 梯度
             model_dic = self.get_data_t_td(station)
-            model_dic['obs'] = ds_obs['temp'] - ds_obs['td']
+            # model_dic['obs'] = ds_obs['temp'] - ds_obs['td']
+            model_dic['obs'] = ds_obs.sel(concat_dim='t_td')
 
             model_dic = self.grads_data(model_dic)
-            print(model_dic)
+            # print(model_dic)
             pass
 
         elif var == 'wind_grads':  ## 梯度
             model_dic = self.get_data_wind(station)
-            model_dic['obs'] = ds_obs['wind_s']
+            # model_dic['obs'] = ds_obs['wind_s']
+            model_dic['obs'] = ds_obs.sel(concat_dim='wind_s')
 
             model_dic = self.grads_data(model_dic)
-            print(model_dic)
+            # print(model_dic)
             pass
 
         return model_dic
@@ -330,6 +342,8 @@ class Regrid():
         ## 不同时刻各层气压值，差别可以忽略不计,
         # 后面还要对气压层进行插值, 这里不对它做过高精度要求
         path = '/mnt/zfm_18T/Asses_PBL/wrfout_data/'
+        ### 不同的方案和时间，在同一站点，各层气压值相差小于1度
+        ### 故不作分开考虑
         flnm_pressure = os.path.join(path, 'pressure_Jul_YSU_latlon')
         ds_pressure = xr.open_dataset(flnm_pressure)
         pr = ds_pressure.pressure
@@ -338,16 +352,17 @@ class Regrid():
         lon = station['lon']
         # prc = prb.sel(lat=32.13, lon=92.5, method='nearest')
         prc = prb.sel(lat=lat, lon=lon, method='nearest')
+        prc = prc[0] - prc  # 离地气压高度
         return prc
 
     def regrid(self, da_temp, station, pressure_lev):
         """对wrfout数据进行插值的
         需要水平插值和垂直插值两项
         Args:
-            da_temp ([DataArray]): [需要插值的变量]
+            da_temp (DataArray): 需要插值的变量
 
         Returns:
-            [type]: [description]
+            DataArray: 插值后的变量
         """
 
         #### 将bottom_top坐标换成气压坐标
@@ -446,18 +461,19 @@ class Draw():
         color_map = get_cmap_temp()
 
         if var == 'temp':
-            level = np.arange(-19, 20, 3)
+            level = np.arange(-20, 30, 2.5)
         elif var == 't_td':
-            level = np.arange(0, 15, 1)
+            level = np.arange(0, 25, 1)
         elif var == 'wind':
-            level = np.arange(0, 15, 1)
+            level = np.arange(0, 25, 2.5)
         elif var == 'temp_grads':
-            level = np.arange(0, 0.5, 0.01)
+            level = np.arange(-0.2, 0.1, 0.01)
         elif var == 't_td_grads':
-            level = np.arange(0, 0.25, 0.01)
+            # level = np.arange(0, 0.25, 0.01)
+            level = np.arange(-0.25, 0.26, 0.01)
         elif var == 'wind_grads':
-            level = np.arange(0, 0.25, 0.01)
-            
+            level = np.arange(-0.25, 0.26, 0.05)
+
         # elif var in ['temp_grads', 't_td_grads', 'wind_grads']:
         #     level = np.arange(0, 0.5, 0.01)
         #     pass
@@ -480,7 +496,7 @@ class Draw():
         ax.set_xticklabels(xlabel)
 
         plt.gca().invert_yaxis()
-        ax.set_ylim(600, 300)
+        # ax.set_ylim(0, 300)
         ax.set_title(title, fontsize=14)
         # ## 设置标签名称
         ax.set_xlabel("Time(UTC, day)", fontsize=14)
@@ -516,29 +532,30 @@ class Draw():
         axes[4] = fig.add_subplot(grid[2, 0:1])
         axes[5] = fig.add_subplot(grid[2, 1:2])
 
-        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF','obs']
-
+        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF', 'obs']
 
         ax6 = fig.add_axes([0.18, 0.06, 0.7, 0.02])  # 重新生成一个新的坐标图
         keys = ['00', '12']
         # for model in model_list:
         for key in keys:
             for i in range(len(model_list)):
-                    time_index = model_dic[model_list[i]].time.sel(time=datetime.time(int(key)))
-                    # time_index = time_index_dic[key]
-                    CS = None
-                    # time_index = model_dic[model_list[i]].time.sel(time=datetime.time(12))
-                    title = str(station_name)+"_"+ model_list[i] +"_"+ str(key)
-                    CS = self.draw_contourf_single(var, axes[i],
-                                                    model_dic[model_list[i]], title,
-                                                    time_index)
-            
+                time_index = model_dic[model_list[i]].time.sel(
+                    time=datetime.time(int(key)))
+                # time_index = time_index_dic[key]
+                CS = None
+                # time_index = model_dic[model_list[i]].time.sel(time=datetime.time(12))
+                title = str(station_name) + "_" + model_list[i] + "_" + str(
+                    key)
+                CS = self.draw_contourf_single(var, axes[i],
+                                               model_dic[model_list[i]], title,
+                                               time_index)
+
             cb = fig.colorbar(CS,
-                                cax=ax6,
-                                orientation='horizontal',
-                                shrink=0.8,
-                                pad=0.14,
-                                fraction=0.14)  # 这里的cs是画填色图返回的对象
+                              cax=ax6,
+                              orientation='horizontal',
+                              shrink=0.8,
+                              pad=0.14,
+                              fraction=0.14)  # 这里的cs是画填色图返回的对象
 
             path = '/home/fengxiang/Project/Asses_PBL/Draw/UPAR/picture/'
             fig_name = os.path.join(
@@ -572,13 +589,26 @@ if __name__ == '__main__':
         },
     }
     station = station_dic['GaiZe']
+    # station = station_dic['ShiQuanhe']
     # gd = Get_data()
     # aa = gd.get_data_main('temp', station)
 
     # var = 'temp'
     # var = 't_td'
+
+    ## 测试wrfout插值
+    # re = Regrid()
+    # aa = re.get_pressure_lev(station)
+    # print(aa.values)
+
+    # # # ## 测试obs插值
+    # gb = Get_obs()
+    # aa = gb.read_obs(station)
+    # print(aa['wind_s'])
+
+    # #### 最终画图
     var_list = ['temp', 't_td', 'wind', 'temp_grads', 't_td_grads', 'wind_grads']
-    var = var_list[5]
+    var = var_list[4]
 
     Dr = Draw()
     Dr.draw_main(station_dic, var)
