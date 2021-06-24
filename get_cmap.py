@@ -63,7 +63,7 @@ def get_cmap_temp():
         col[5],
         # col[6],
         # col[7],
-        'white',
+        # 'white',
         col[8],
         col[9],
         col[10],
@@ -74,7 +74,7 @@ def get_cmap_temp():
     ])
 
     # ## 在原来的基础上，多搞几个细分的颜色
-    # cccc, clev = mb.def_cmap_clevs(cmap=cccc, clevs=np.arange(43))
+    cccc, clev = mb.def_cmap_clevs(cmap=cccc, clevs=np.arange(40))
 
     # # # print(len(cmap.values))
     cmap = cccc
