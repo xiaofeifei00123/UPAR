@@ -2,14 +2,7 @@
 # -*- encoding: utf-8 -*-
 '''
 Description:
-单变量的插值和绘图
-读temp, td, u, v
-读pressure
-并插值到站点上
-垂直插值+水平插值
-画一个站点的图
-每天所有时次的
-原始气压坐标
+画探空的廓线图
 -----------------------------------------
 Time             :2021/06/17 18:59:18
 Author           :Forxd
@@ -39,40 +32,46 @@ import metpy
 
 
 class Draw_skewt():
-    def __init__(self, ):
+    def __init__(self, station):
         pass
+        self.station = station
 
-    def draw_main(self, station_dic):
+    def draw_main(self, ):
 
         time_index = ['00', '06', '12']
         # time_index = ['00']
 
-        ## 一个时次一个站点
+        ## 循环出一个时次一个站点
         for time_select in time_index:
-            for key in station_dic:
-                pass
-                station = station_dic[key]
+            ### 获得数据
+            # gd = Get_data()
+            tr = TransferData(self.station)
+            # model_dic = gd.get_data_main(var, station)
+            # print("yes")
+            model_dic_t = tr.transfer_data('temp')
+            model_dic_td = tr.transfer_data('td')
+            # model_dic_t_td = tr.transfer_data('t_td')
+            # model_dic_wind = tr.transfer_data('wind')
+            model_dic_z = tr.transfer_data('z')
+            # model_dic_z = tr.transfer_data('z')
+            # print(model_dic_t)
+            # model_dic_td = gd.get_data_main('td', self.station)
+            # model_dic_t = gd.get_data_main('temp', self.station)
+            # model_dic_td = gd.get_data_main('td', self.station)
+            ## 画图
+            title = {'time': time_select, 'station_name': self.station['name']}
+            # cc = self.draw_skewt(model_dic_t, model_dic_td, title)
+            # self.draw_upar(
+            #     model_dic_t, 
+            #     model_dic_td,
+            #     model_dic_t_td,
+            #     model_dic_wind,
+            #     title,
+            #     )
+            self.caculate_theta_v(model_dic_t, model_dic_td, model_dic_z, title)
 
-                ### 获得数据
-                # gd = Get_data()
-                tr = TransferData(station)
-                # model_dic = gd.get_data_main(var, station)
-                # print("yes")
-                model_dic_t = tr.transfer_data('temp')
-                model_dic_t_td = tr.transfer_data('t_td')
-                model_dic_wind = tr.transfer_data('wind')
-                # print(model_dic_t)
-                # model_dic_td = gd.get_data_main('td', station)
-                # model_dic_t = gd.get_data_main('temp', station)
-                # model_dic_td = gd.get_data_main('td', station)
-                ## 画图
-                title = {'time': time_select, 'station_name': station['name']}
-                # cc = self.draw_skewt(model_dic_t, model_dic_td, title)
-                self.draw_upar(model_dic_t, model_dic_t_td, model_dic_wind,
-                               title)
-
-    def draw_upar(self, model_dic_t, model_dic_t_td, model_dic_wind,
-                  title_dic):
+    def draw_upar(self, model_dic_t, model_dic_td, model_dic_t_td,
+                  model_dic_wind, title_dic):
         """画探空的廓线
         """
         pass
@@ -83,14 +82,16 @@ class Draw_skewt():
         ax2 = fig.add_axes([0.42, 0.1, 0.22, 0.8])  # 左右起始位置，宽度和高度
         ax3 = fig.add_axes([0.75, 0.1, 0.22, 0.8])  # 左右起始位置，宽度和高度
 
-        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF', 'obs']
+        # model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF', 'obs']
+        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'obs']
         # model_list = ['TEMF', 'obs']
         model_t = {}  # 存储每个试验的某个时次的平均值
+        model_td = {}  # 存储每个试验的某个时次的平均值
         model_t_td = {}
         model_wind = {}
 
-        time_index = model_dic_t['obs'].time.sel(
-            time=datetime.time(int(title_dic['time'])))
+        time_index = model_dic_t['obs'].time.sel(time=datetime.time(
+            int(title_dic['time'])))  # 00还是06,12时间筛选在这
 
         #### 取特殊时次的平均值
         ## 删除7月1日10时和7月1日12时两个时次的值的数据
@@ -103,24 +104,31 @@ class Draw_skewt():
             model_t[model_list[i]] = model_dic_t[model_list[i]].sel(
                 time=time_index).mean(dim='time', skipna=True)
 
+            model_td[model_list[i]] = model_dic_td[model_list[i]].sel(
+                time=time_index).mean(dim='time', skipna=True)
+
             model_t_td[model_list[i]] = model_dic_t_td[model_list[i]].sel(
                 time=time_index).mean(dim='time', skipna=True)
 
             model_wind[model_list[i]] = model_dic_wind[model_list[i]].sel(
                 time=time_index).mean(dim='time', skipna=True)
 
-        color_list = ['orange', 'red', 'cyan', 'blue', 'green', 'black']
+        # color_list = ['orange', 'red', 'cyan', 'blue', 'green', 'black']
+        color_list = ['orange', 'red', 'cyan', 'blue', 'black']
 
-        
-        aa = model_t['YSU'].to_series()        
+        theta_v = self.caculate_theta_v(model_t, model_td)
+
+        model_t = theta_v
+
+        aa = model_t['YSU'].to_series()
         aa1 = aa.dropna()
         y_bottom = aa1.index[0]
-        
-        bb = model_t_td['YSU'].to_series()        
+
+        bb = model_t_td['YSU'].to_series()
         bb1 = bb.dropna()
         y2_bottom = bb1.index[0]
-        
-        cc = model_wind['YSU'].to_series()        
+
+        cc = model_wind['YSU'].to_series()
         cc1 = cc.dropna()
         y3_bottom = cc1.index[0]
 
@@ -159,9 +167,10 @@ class Draw_skewt():
             # ax3.set_xlim(0,25)
 
         fts = 14
-        ax1.legend(loc='lower left')
+        ax1.legend(loc='lower right')
         ax1.set_ylabel('Pressure off the ground (hPa)', fontsize=fts)
-        ax1.set_xlabel('T', fontsize=fts)
+        ax1.set_xlabel('theta_v', fontsize=fts)
+        # ax1.invert_yaxis()
         # ax1.set_xticks(np.arange(-75, 26, 25))  # 这个是选择哪几个坐标画上来的了,都有只是显不显示
 
         ax2.set_xlabel('T-Td', fontsize=fts)
@@ -185,160 +194,106 @@ class Draw_skewt():
 
         fig.savefig(fgnm)
 
-    def caculate_theta_v(self, model_dic_t, model_dic_td, title_dic):
+    def caculate_theta_v(self, model_dic_t, model_dic_td, model_dic_z, title_dic):
         # -------------获取数据-------------------
-        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF', 'obs']
+
+        ### TEMF方案温度是缺省值是怎么回事呢????
+
+        # model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'obs']
+        # model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF', 'obs']
+        model_list = ['TEMF']
         model_t = {}  # 存储每个试验的某个时次的平均值
         model_td = {}
+        model_z = {}
+        q = {}  # specific humidity
+        w = {}  # mixing ratio
+        theta_v = {}  # virtual potential temperature
 
         time_index = model_dic_t['obs'].time.sel(
-            time=datetime.time(int(title_dic['time'])))
+            time=datetime.time(int(title_dic['time'])))   # 00还是06,12时间筛选在这
 
-        print(time_index)
-        ## 删除7月1日10时和7月1日12时两个时次的值的数据
-        ## 所有的时间序列都转换成numpy的时间序列形式，pandas和xarray 都支持
         time_index = time_index.values  # 转换成numpy数组
         t1 = pd.date_range('20160701 00', '20160701 1200', freq='6H')
         ## numpy筛选两个array的不同部分
         time_index = np.setdiff1d(time_index, t1.values)
+        # print(time_index)
 
         for i in range(len(model_list)):
             model_t[model_list[i]] = model_dic_t[model_list[i]].sel(
                 time=time_index).mean(dim='time', skipna=True)
-
             model_td[model_list[i]] = model_dic_td[model_list[i]].sel(
                 time=time_index).mean(dim='time', skipna=True)
-
-        metpy.calc.virtual_potential_temperature()
-
-    def draw_skewt(slef, model_dic_t, model_dic_td, title_dic):
-        """画skewt图
-
-        Args:
-            slef ([type]): [description]
-            model_dic_t ([type]): 温度文
-            model_dic_td ([type]): [description]
-            title_dic ([type]): [description]
-        """
-
-        # -------------获取数据-------------------
-        model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF', 'obs']
-        model_t = {}
-        model_td = {}
-
-        time_index = model_dic_t['obs'].time.sel(
-            time=datetime.time(int(title_dic['time'])))
-
-        print(time_index)
-        ## 删除7月1日10时和7月1日12时两个时次的值的数据
-        ## 所有的时间序列都转换成numpy的时间序列形式，pandas和xarray 都支持
-        time_index = time_index.values  # 转换成numpy数组
-        t1 = pd.date_range('20160701 00', '20160701 1200', freq='6H')
-        ## numpy筛选两个array的不同部分
-        time_index = np.setdiff1d(time_index, t1.values)
-
-        for i in range(len(model_list)):
-            model_t[model_list[i]] = model_dic_t[model_list[i]].sel(
+            model_z[model_list[i]] = model_dic_z[model_list[i]].sel(
                 time=time_index).mean(dim='time', skipna=True)
 
-            model_td[model_list[i]] = model_dic_td[model_list[i]].sel(
-                time=time_index).mean(dim='time', skipna=True)
+        dic_return = {}
 
-        fig = plt.figure(figsize=(8, 4), dpi=400)
+        for model in model_list:
+            pass
+            td = model_td[model].dropna(dim='pressure')
+            prc = td.pressure.values
+            height = model_z[model].sel(pressure=prc).values - self.station['height']
+            t = model_t[model].sel(pressure=prc).dropna(dim='pressure')
+            if len(t)==0 or len(td)==0:
+                pass
+                da = model_t[model]
+                dic_return[model] = da
+            else: 
+                pressure = units.Quantity(td.pressure.values,"hPa")
 
-        ###  T_lnP & Td_lnP
-        skew = SkewT(fig, rotation=30, rect=[0.1, 0.1, float(8 / 17), 0.85])
-        skew1 = SkewT(
-            fig,
-            rotation=30,
-            rect=[float(8 / 17 + 0.1 + 0.1), 0.1,
-                  float(5 / 17), 0.85])
+                temperature = units.Quantity(t.values,"degC")
+                dew_point = units.Quantity(td.values,"degC")
 
-        # 画T_lnP图
-        num = len(model_t)
-        colors = [
-            'cyan',
-            'red',
-            'green',
-            'blue',
-            'orange',
-            'black',
-        ]
+                # if temperature[0]
 
-        print("画T_lnP")
-        for i in range(num):  # 模式个数+观测
-            # print(i)
-            # line = skew.plot(module.keys[i])
-            key = list(model_t.keys())
-            val = list(model_t.values())
-            module_value = val[i]
-            module_name = key[i]
-            # print(module_name)
-            # val = modlue.values()[i]
-            # print(key[i])
-            # print(val)
-            # line = skew.plot_barbs(val[''])
-            line = skew.plot(module_value['pressure'],
-                             module_value.values,
-                             linewidth=2.0,
-                             label=module_name,
-                             color=colors[i])
+                # q[model] = metpy.calc.specific_humidity_from_dewpoint(model_td[model].pressure.values, model_td[model].values)
+                q[model] = metpy.calc.specific_humidity_from_dewpoint(pressure, dew_point)
+                # print(q[model])
+                w[model] = metpy.calc.mixing_ratio_from_specific_humidity(q[model])
+                theta_v[model] = metpy.calc.virtual_potential_temperature(pressure, temperature, w[model])
+                # da = xr.DataArray(theta_v[model], coords=prc, dim=pressure)
+                # da = xr.DataArray(theta_v[model], coords=[prc], dims=['pressure'])
+                da = xr.DataArray(theta_v[model], coords=[height], dims=['height'])
+                # print(da)
+                dic_return[model] = da
+                # print(theta_v[model])
 
-        print("画Td_lnP")
-        for i in range(num):  # 模式个数+观测
-            # print(i)
-            # line = skew.plot(module.keys[i])
-            key = list(model_td.keys())
-            val = list(model_td.values())
-            module_value = val[i]
-            module_name = key[i]
-            # print(module_name)
-            line = skew.plot(module_value['pressure'],
-                             module_value.values,
-                             linestyle='--',
-                             linewidth=2.0,
-                             color=colors[i])
+        return dic_return
 
-        for i in range(num):  # 模式个数+观测
-            key = list(model_t.keys())
-            val_t = list(model_t.values())
-            val_td = list(model_td.values())
-            module_value_t = val_t[i]
-            module_value_td = val_td[i]
-            module_name = key[i]
-            # print(module_name)
-            line = skew1.plot(
-                module_value_t['pressure'],
-                module_value_t.values - module_value_td.values,
-                linestyle='-.',
-                linewidth=2.,
-                alpha=1.,
-                # marker='*',
-                color=colors[i])
-            # line.set_linewidht(2.0)
-        skew.ax.set_xlabel('T,Td (℃)', fontsize=14)
-        skew.ax.set_ylabel('Pressure (hPa)', fontsize=14)
-        skew.ax.set_ylim(700, 100)
-        skew.ax.set_xlim(-50, 30)
-        skew.plot_dry_adiabats(alpha=0.3)  # 干绝热线
-        skew.plot_moist_adiabats(alpha=0.3)  # 湿绝热线
-        skew.ax.legend(edgecolor='white')
+    # def caculate_theta_v(self, model_t, model_td):
+    #     # -------------获取数据-------------------
 
-        skew.ax.set_title(title_dic['station_name'], loc='right', fontsize=14)
-        skew.ax.set_title(title_dic['time'], loc='left', fontsize=14)
-        skew.ax.xaxis.set_tick_params(labelsize=12)
-        skew.ax.yaxis.set_tick_params(labelsize=12)
+    #     q = {}
+    #     w = {}
+    #     theta_v = {}
 
-        skew1.ax.set_xlabel('T-Td (℃)', fontsize=14)
-        skew1.ax.set_ylim(700, 100)
-        skew1.ax.set_xlim(0, 50)
-        # skew1.plot_dry_adiabats(alpha=0.3)  # 干绝热线
-        # skew1.plot_moist_adiabats(alpha=0.3)  # 湿绝热线
-        # fig_name = fig_name+keys[0]
-        path = '/home/fengxiang/Project/Asses_PBL/Draw/UPAR/picture/'
-        fig_name = title_dic['station_name'] + "_" + str(title_dic['time'])
-        fig_name = os.path.join(path, fig_name)
-        fig.savefig(fig_name)
+    #     dic_return = {}
+
+    #     model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'obs']
+    #     for model in model_list:
+    #         pass
+    #         td = model_td[model].dropna(dim='pressure')
+    #         prc = td.pressure.values
+    #         t = model_t[model].sel(pressure=prc).dropna(dim='pressure')
+
+    #         pressure = units.Quantity(td.pressure.values, "hPa")
+    #         temperature = units.Quantity(t.values, "degC")
+    #         dew_point = units.Quantity(td.values, "degC")
+
+    #         # q[model] = metpy.calc.specific_humidity_from_dewpoint(model_td[model].pressure.values, model_td[model].values)
+    #         q[model] = metpy.calc.specific_humidity_from_dewpoint(
+    #             pressure, dew_point)
+    #         # print(q[model])
+    #         w[model] = metpy.calc.mixing_ratio_from_specific_humidity(q[model])
+    #         theta_v[model] = metpy.calc.virtual_potential_temperature(
+    #             pressure, temperature, w[model])
+    #         # da = xr.DataArray(theta_v[model], coords=prc, dim=pressure)
+    #         da = xr.DataArray(theta_v[model], coords=[prc], dims=['pressure'])
+    #         print(da)
+    #         dic_return[model] = da
+    #         # print(theta_v[model])
+
+    #     return dic_return
 
 
 if __name__ == '__main__':
@@ -346,32 +301,32 @@ if __name__ == '__main__':
     pass
     station_dic = {
         # 'GaiZe': {
-        #     'lat': 32.3,
-        #     'lon': 84.0,
-        #     'name': 'GaiZe',
-        #     'number': '55248',
-        #     'height': 4400,
+            # 'lat': 32.3,
+            # 'lon': 84.0,
+            # 'name': 'GaiZe',
+            # 'number': '55248',
+            # 'height': 4400,
         # },
-        'ShenZha': {
-            'lat': 30.9,
-            'lon': 88.7,
-            'name': 'ShenZha',
-            'number': '55472',
-            'height': 4672
+        # 'ShenZha': {
+        #     'lat': 30.9,
+        #     'lon': 88.7,
+        #     'name': 'ShenZha',
+        #     'number': '55472',
+        #     'height': 4672
+        # },
+        'ShiQuanhe': {
+            'lat': 32.4,
+            'lon': 80.1,
+            'name': 'ShiQuanhe',
+            'number': '55228',
+            'height': 4280
         },
-        # 'ShiQuanhe': {
-        #     'lat': 32.4,
-        #     'lon': 80.1,
-        #     'name': 'ShiQuanhe',
-        #     'number': '55228',
-        #     'height': 4280
-        # },
     }
     #### 最终画图
     var_list = [
         'temp', 't_td', 'wind', 'temp_grads', 't_td_grads', 'wind_grads'
     ]
     # var = var_list[4]
-
-    Dr = Draw_skewt()
+    station = station_dic['GaiZe']
+    Dr = Draw_skewt(station)
     Dr.draw_main(station_dic)
