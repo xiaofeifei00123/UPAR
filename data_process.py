@@ -2,6 +2,7 @@
 # -*- encoding: utf-8 -*-
 '''
 Description:
+放弃height变量的添加
 获取探空观测图所需要的数据
 需要哪些资料(站点的，随高度和时间变化的):
     1. T -- 温度
@@ -14,6 +15,8 @@ Description:
     7. q -- 比湿
 
     以及它们随高度变化的梯度
+
+    获取不同月份的数据，5月和7月
 
 注意：
     垂直坐标的选取(h, p)
@@ -37,16 +40,16 @@ import xarray as xr
 import os
 import numpy as np
 import pandas as pd
-import netCDF4 as nc
+# import netCDF4 as nc
 from netCDF4 import Dataset
 from wrf import getvar, vinterp, interplevel
-import matplotlib.pyplot as plt
-from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-from get_cmap import get_cmap_temp
-import datetime
+# import matplotlib.pyplot as plt
+# from matplotlib.ticker import MultipleLocator, FormatStrFormatter
+# from get_cmap import get_cmap_temp
+# import datetime
 
 from metpy.units import units
-import metpy
+# import metpy
 from metpy.calc import specific_humidity_from_dewpoint
 from metpy.calc import mixing_ratio_from_specific_humidity
 from metpy.calc import virtual_potential_temperature
@@ -62,9 +65,24 @@ class GetData():
     def __init__(self, station):
         self.station = station
         self.pressure_level = np.arange(610, 100, -5)
-        self.month = 'Jul'
         self.path = '/mnt/zfm_18T/Asses_PBL/'
         self.model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF']
+
+        self.month = 'May'
+        if self.month == 'Jul':
+            self.month_num = '07'
+            self.time_first = '2016-07-01 13:00'
+
+            self.flnm_height_obs = '/mnt/zfm_18T/Asses_PBL/GPS_Upar_2016/SCEX_TIPEX3_UPAR_GPS_MUL_55228-201607/upar_G_55228_2016070206.txt'
+            self.rh_file = '/mnt/zfm_18T/Asses_PBL/FNL/fnl_rh_201607'
+        elif self.month == 'May':
+            self.month = 'Jul'
+            self.month_num = '05'
+            self.time_first = '2016-07-01 13:00'
+            # self.path = '/mnt/zfm_18T/Asses_PBL/'
+            self.flnm_height_obs = '/mnt/zfm_18T/Asses_PBL/GPS_Upar_2016/SCEX_TIPEX3_UPAR_GPS_MUL_55228-201605/upar_G_55228_2016051112.txt'
+            self.rh_file = '/mnt/zfm_18T/Asses_PBL/FNL/fnl_rh_201605'
+            
     
 
     def grads_data(self, model_dic):
@@ -198,8 +216,10 @@ class GetObs(GetData):
         df = df.where(df < 9999, np.nan)  # 将缺省值赋值为NaN
         df = df.sort_values('pressure', ascending=False)  # 按照某一列排序
         ### 找到需要的第一行数据
-        df_temp = df
-        df1 = df.dropna(axis=0, subset=['td', 'wind_s', 'temp'])
+        # df_temp = df
+        # df1 = df.dropna(axis=0, subset=['td', 'wind_s', 'temp'])
+        df1 = df.dropna(axis=0, subset=['temp'])
+        print(df1)
         df2 = df1.iloc[0]
 
         ### 找到除气压最大值行之外的行
@@ -223,7 +243,8 @@ class GetObs(GetData):
         思路和读取整个数据的思路一样, 只是保证每个气压值对应的高度相同
         """
         pass
-        flnm = '/mnt/zfm_18T/Asses_PBL/GPS_Upar_2016/SCEX_TIPEX3_UPAR_GPS_MUL_55228-201607/upar_G_55228_2016070206.txt'
+        # flnm = '/mnt/zfm_18T/Asses_PBL/GPS_Upar_2016/SCEX_TIPEX3_UPAR_GPS_MUL_55228-201607/upar_G_55228_2016070206.txt'
+        flnm = self.flnm_height_obs
         col_names = [
             'pressure', 'height', 'temp', 'td', 't_td', 'wind_d', 'wind_s'
         ]
@@ -244,8 +265,10 @@ class GetObs(GetData):
         df2 = df1  # 每一次重新传入这个df1,尽可能多的保留数据
         df2 = df2.dropna(axis=0, subset=[var])
         # 坐标处理, 保留相同元素的第一个
-        df2.drop_duplicates('pressure', 'first', inplace=True)
-        df2.set_index(['pressure'], inplace=True)  # 将pressure这一列设为index
+        # df2.drop_duplicates('pressure', 'first', inplace=True)
+        df2 = df2.drop_duplicates('pressure', 'first')
+        # df2.set_index(['pressure'], inplace=True)  # 将pressure这一列设为index
+        df2 = df2.set_index(['pressure'])  # 将pressure这一列设为index
         df3 = df2.sort_values('pressure')  # 按照某一列排序
         # -------------------------------------------------------
         ## 垂直坐标处理, 允许有缺省值的出现
@@ -262,7 +285,6 @@ class GetObs(GetData):
         因为变量的缺省不同，所以这里是分别对每个变量进行插值的
         这里出现的这些问题，都是由于自己对pandas库不熟悉所导致的，
         读取单个时次的观测数据
-        我希望自己的工作，不仅仅是打工者的角色, 要做到更多更好一点才好
         """
         col_names = [
             'pressure', 'height', 'temp', 'td', 't_td', 'wind_d', 'wind_s'
@@ -287,9 +309,12 @@ class GetObs(GetData):
             df2 = df1  # 每一次重新传入这个df1,尽可能多的保留数据
             df2 = df2.dropna(axis=0, subset=[var])
             # 坐标处理
-            df2.drop_duplicates('pressure', 'first', inplace=True)
+            # df2.drop_duplicates('pressure', 'first', inplace=True)
+            df2 = df2.drop_duplicates('pressure', 'first')  # 返回副本
+            # print(df2)
             # 改变pressure坐标为相对的还是绝对的
-            df2.set_index(['pressure'], inplace=True)  # 将pressure这一列设为index
+            # df2.set_index(['pressure'], inplace=True)  # 将pressure这一列设为index
+            df2 = df2.set_index(['pressure'])  # 将pressure这一列设为index
             # df3 = df2.sort_values('pressure')  # 按照某一列排序
             df3 = df2
             # print(df3)
@@ -324,7 +349,8 @@ class GetObs(GetData):
         number = self.station['number']
         path1 = os.path.join(self.path, "GPS_Upar_2016/SCEX_TIPEX3_UPAR_GPS_MUL_")
         # path1 = "/mnt/zfm_18T/Asses_PBL/GPS_Upar_2016/SCEX_TIPEX3_UPAR_GPS_MUL_"
-        path = path1 + str(number) + "-201607"
+        # path = path1 + str(number) + "-201607"
+        path = path1 + str(number) + "-2016"+self.month_num
         aa = os.listdir(path)  # 文件名列表
         aa.sort()  # 排一下顺序，这个是对列表本身进行操作
         ds_time = []  # 每个时次变量的列表
@@ -373,10 +399,15 @@ class GetWrfout(GetData):
             path = '/mnt/zfm_18T/Asses_PBL/wrfout_data/'
             # 不同的方案和时间，在同一站点，各层气压值相差小于1度
             # 故不作分开考虑
-            flnm_pressure = os.path.join(path, 'pressure_Jul_YSU_latlon')
+            # flnm_pressure = os.path.join(path, 'pressure_Jul_YSU_latlon')
+            pressure_name = 'pressure_'+self.month+'_YSU_latlon'
+            flnm_pressure = os.path.join(path, pressure_name)
+            # flnm_pressure = os.path.join(path, 'pressure_Jul_YSU_latlon')
             ds_pressure = xr.open_dataset(flnm_pressure)
             pr = ds_pressure.pressure
-            prb = pr.sel(time='2016-07-01 13:00')
+        
+            # prb = pr.sel(time='2016-07-01 13:00')
+            prb = pr.sel(time=self.time_first)
             lat = self.station['lat']
             lon = self.station['lon']
             # prc = prb.sel(lat=32.13, lon=92.5, method='nearest')
@@ -391,10 +422,13 @@ class GetWrfout(GetData):
             path = '/mnt/zfm_18T/Asses_PBL/wrfout_data/'
             # 不同的方案和时间，在同一站点，各层气压值相差小于1度
             # 故不作分开考虑
-            flnm_pressure = os.path.join(path, 'height_agl_Jul_YSU_latlon')
+            height_name = 'height_agl_'+self.month+'_YSU_latlon'
+            # flnm_pressure = os.path.join(path, 'height_agl_Jul_YSU_latlon')
+            flnm_pressure = os.path.join(path, height_name)
             ds = xr.open_dataset(flnm_pressure)
             pr = ds.height_agl
-            prb = pr.sel(time='2016-07-01 13:00')
+            # prb = pr.sel(time='2016-07-01 13:00')
+            prb = pr.sel(time=self.time_first)
             lat = self.station['lat']
             lon = self.station['lon']
             # prc = prb.sel(lat=32.13, lon=92.5, method='nearest')
@@ -467,60 +501,6 @@ class GetWrfout(GetData):
                 model_dic[model] = xr.ufuncs.sqrt(U**2 + V**2)
         return model_dic
 
-class GetFnl(GetData):
-    """获取再分析资料
-    """
-    def __init__(self, station):
-        super(GetFnl, self).__init__(station)
-        # self.station = station
-        # self.pressure_level = np.arange(610, 100, -5)
-        # self.month = 'Jul'
-        # self.path = '/mnt/zfm_18T/Asses_PBL/'
-        # self.model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF']
-
-    def get_data_fnl(self, var):
-        """获取相对湿度等fnl变量
-        """
-        # path = os.path.join(self.path, 'FNL/*201607*.grib2')
-        # print(path)
-        path = '/mnt/zfm_18T/Asses_PBL/FNL/*201607*00.grib2' ## 所有时次的文件
-        # path = '/mnt/zfm_18T/Asses_PBL/FNL/*20160711*00.grib2'
-        fl_list = os.popen('ls {}'.format(path))
-        fl_list = fl_list.read().split()
-
-        rh_list = []
-        for fl in fl_list:
-            ds = xr.open_dataset(fl, engine='cfgrib',
-                                backend_kwargs={'filter_by_keys':
-                                    {'typeOfLevel': 'isobaricInhPa'}})
-            # rh = ds.r
-            ds = ds.rename({'r':'rh'})  # 统一变量名称
-            # print(ds)
-            rh = ds[var]
-            rh_list.append(rh)
-        da = xr.concat(rh_list, dim='time')
-        # da = da_rh.sel(latitude=33, longitude=95,
-                    # method='nearest')
-        da = da.sel(latitude=self.station['lat'], 
-                        longitude=self.station['lon'],
-                        method='nearest')
-        da = da.rename({'isobaricInhPa': 'pressure',
-                        'latitude': 'lat', 'longitude': 'lon'})
-        da_return = da.interp(pressure=self.pressure_level)
-        # print(da)
-        return da_return
-
-    # def get_data_fnl(self, var):
-    #     """判断需要获取的变量是否需要计算 """
-    #     if var == 'q':
-    #         pass
-    #         print("根据相对湿度算比湿，还需要温度，先不算了")
-    #     else:
-    #         print("开始")
-    #         da = self.get_data_one(var)
-    #         print("Jieshu")
-    #         print(da)
-    #     return da
 
 class Caculate_data():
     """计算获取需要的诊断变量
@@ -647,7 +627,7 @@ class Caculate_data():
 
         return dic_return
 
-class TransferData(GetObs, GetWrfout, GetFnl, Caculate_data):
+class TransferData(GetObs, GetWrfout, Caculate_data):
     """将获得的数据传递出去
     """
     # 当子类赋值属性和父类一样时， 子类实例化之后
@@ -689,8 +669,17 @@ class TransferData(GetObs, GetWrfout, GetFnl, Caculate_data):
             var_dic_td = self.get_data_one('td')
             var_dic = self.caculate_diagnostic(var_dic_t,
                                             var_dic_td, var)
-            # var_dic['fnl'] = self.get_data_fnl('rh')
-            var_dic['fnl'] = xr.open_dataarray('/mnt/zfm_18T/Asses_PBL/FNL/fnl_rh_201607')
+            ## 读所有格点的fnl数据, 再插值
+            if var == 'rh':
+                # ds = xr.open_dataset('/mnt/zfm_18T/Asses_PBL/FNL/fnl_rh_201607')
+                ds = xr.open_dataset(self.rh_file)
+                da = ds.rh
+                ## 水平插值
+                da = da.sel(lat=self.station['lat'], 
+                                lon=self.station['lon'],
+                                method='nearest')
+                ## 垂直插值
+                var_dic['fnl'] = da.interp(pressure=self.pressure_level)
         else:
             print("输入错误")
             var_dic = None
@@ -753,7 +742,7 @@ if __name__ == '__main__':
     # %%
     tr = TransferData(station)
     model_dic = tr.transfer_data('rh')  # 多试验的某变量(temp, rh..)数据
-    # # print(model_dic)
+    print(model_dic)
     # # print(model_dic['obs'].height_coord)
     # # # # print(aa)
     # # # # model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF', 'obs']
