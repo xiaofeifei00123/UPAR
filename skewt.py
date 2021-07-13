@@ -24,15 +24,25 @@ from data_process import TransferData
 
 
 class Draw_skewt():
-    def __init__(self, station):
+
+    def __init__(self, station, month):
         pass
         self.station = station
-        if station['name'] == 'ShenZha':
-            self.model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'obs']
-            # self.color_list = ['orange', 'red', 'cyan', 'blue', 'black']
-            self.color_list = [
-                'red', 'red', 'blue', 'blue', 'green', 'black'
-            ]
+        self.month = month
+        if self.month == 'Jul':
+            if station['name'] == 'ShenZha':
+                self.model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'obs']
+                # self.color_list = ['orange', 'red', 'cyan', 'blue', 'black']
+                self.color_list = [
+                    'red', 'red', 'blue', 'blue', 'green', 'black'
+                ]
+            else:
+                self.model_list = [
+                    'ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF', 'obs'
+                ]
+                self.color_list = [
+                    'red', 'red', 'blue', 'blue', 'green', 'black'
+                ]
         else:
             self.model_list = [
                 'ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF', 'obs'
@@ -40,6 +50,7 @@ class Draw_skewt():
             self.color_list = [
                 'red', 'red', 'blue', 'blue', 'green', 'black'
             ]
+
         self.line_style_list = ['solid', 'dashed','solid', 'dashed','solid', 'solid', 'solid']
 
     def draw_main(self, ):
@@ -49,7 +60,7 @@ class Draw_skewt():
         # 循环出一个时次一个站点
         for time_select in time_index:
             ## 获得数据
-            tr = TransferData(self.station)
+            tr = TransferData(self.station, self.month)
             model_dic_theta_v = tr.transfer_data('theta_v')
             model_dic_q = tr.transfer_data('rh')
             model_dic_wind = tr.transfer_data('wind_s')
@@ -150,11 +161,11 @@ class Draw_skewt():
         ax3.set_ylim(570, 300)
 
         fig.suptitle(
-            title_dic['station_name'] + "_" + title_dic['time'],
+            title_dic['station_name'] + "_" + self.month+"_"+title_dic['time'],
             fontsize=fts * 1.3
         )
 
-        fig_name = title_dic['station_name'] + "_" + title_dic['time']
+        fig_name = title_dic['station_name'] + "_" +self.month+"_"+ title_dic['time']
         path = '/home/fengxiang/Project/Asses_PBL/Draw/UPAR/picture_upar'
         fgnm = os.path.join(path, fig_name)
         fig.savefig(fgnm)
@@ -171,20 +182,20 @@ if __name__ == '__main__':
             'number': '55248',
             'height': 4400,
         },
-        # 'ShenZha': {
-        #     'lat': 30.9,
-        #     'lon': 88.7,
-        #     'name': 'ShenZha',
-        #     'number': '55472',
-        #     'height': 4672
-        # },
-        # 'ShiQuanhe': {
-        #     'lat': 32.4,
-        #     'lon': 80.1,
-        #     'name': 'ShiQuanhe',
-        #     'number': '55228',
-        #     'height': 4280
-        # },
+        'ShenZha': {
+            'lat': 30.9,
+            'lon': 88.7,
+            'name': 'ShenZha',
+            'number': '55472',
+            'height': 4672
+        },
+        'ShiQuanhe': {
+            'lat': 32.4,
+            'lon': 80.1,
+            'name': 'ShiQuanhe',
+            'number': '55228',
+            'height': 4280
+        },
     }
     # 最终画图
     var_list = [
@@ -193,5 +204,6 @@ if __name__ == '__main__':
 
     for key in station_dic:
         station = station_dic[key]
-        Dr = Draw_skewt(station)
+        # Dr = Draw_skewt(station, 'Jul')
+        Dr = Draw_skewt(station, 'May')
         Dr.draw_main()
