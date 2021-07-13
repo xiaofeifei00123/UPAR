@@ -29,9 +29,9 @@ from wrf import getvar, vinterp, interplevel
 import matplotlib.pyplot as plt
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 import cmaps
-from get_cmap import get_cmap_temp
+from get_cmap import get_cmap_temp, get_cmap_q
 import datetime
-from read_data import Get_data
+from data_process import TransferData
 
 
 class Draw():
@@ -43,39 +43,17 @@ class Draw():
 
     def draw_main(self, station_dic, var):
 
-        station_dic = {
-            'GaiZe': {
-                'lat': 32.3,
-                'lon': 84.0,
-                'name': 'GaiZe',
-                'number': '55248'
-            },
-            'ShenZha': {
-                'lat': 30.9,
-                'lon': 88.7,
-                'name': 'ShenZha',
-                'number': '55472'
-            },
-            'ShiQuanhe': {
-                'lat': 32.4,
-                'lon': 80.1,
-                'name': 'ShiQuanhe',
-                'number': '55228'
-            },
-        }
-        # var = 'temp'
-        # var = 't_td'
-        # var = 'wind'
         for key in station_dic:
             pass
             station = station_dic[key]
 
-            ### 获得数据
-            gd = Get_data()
-            model_dic = gd.get_data_main(var, station)
+            # 获得数据
+            tr = TransferData(station)
+            # model_dic = gd.get_data_main(var, station)
+            model_dic = tr.transfer_data(var)  # 循环获得变量
             # print("yes")
 
-            ## 画图
+            # 画图
             bb = self.combine_fig(var, model_dic, station['name'])
 
     def draw_contourf_single(self, var, ax, val, title, time_index):
@@ -85,19 +63,10 @@ class Draw():
             val (DataArray): 需要换图的变量
         """
 
-        # val = self.var
-        # print(val)
-        x = val.time  # 各行的名称
         y = val.pressure.values
-
-        # time_index1 = pd.date_range(start='20160702 00', end='20160731 00', freq='24H')
-        # time_index2 = pd.date_range(start='20160702 00', end='20160731 00', freq='24H')
-        # time_index_dic = {'00':time_index1, '12':time_index2}
-        # for key in time_index_dic:
         x = time_index
         # time_index = time_index['data']
         val = val.sel(time=time_index)
-
         val = val.values.swapaxes(0, 1)  # 转置矩阵
         color_map = get_cmap_temp()
 
@@ -114,14 +83,11 @@ class Draw():
             level = np.arange(-0.25, 0.26, 0.01)
         elif var == 'wind_grads':
             level = np.arange(-0.25, 0.26, 0.05)
-
-        # elif var in ['temp_grads', 't_td_grads', 'wind_grads']:
-        #     level = np.arange(0, 0.5, 0.01)
-        #     pass
-        # print(len(x))
-        # print(len(y))
-        # print(val.shape)
-        # print(level)
+        elif var == 'q':
+            level = np.arange(0, 10, 0.5)
+            color_map = get_cmap_q()
+        elif var == 'theta_v':
+            level = np.arange(300, 340, 2.5)
 
         CS = ax.contourf(x,
                          y,
@@ -130,15 +96,19 @@ class Draw():
                          cmap=color_map,
                          extend='both')
         # cb = fig.colorbar(CS, orientation='horizontal', shrink=0.8, pad=0.14, fraction=0.14) # 这里的cs是画填色图返回的对象
-        ## 设置标签大小
+        # 设置标签大小
         # ax.set_xticks(x[::2])  # 这个是选择哪几个坐标画上来的了,都有只是显不显示
         # xlabel = x[::2].dt.strftime('%m%d').values
         ax.set_xticks(x)  # 这个是选择哪几个坐标画上来的了,都有只是显不显示
-        xlabel = x.dt.strftime('%d').values
+        # xlabel = x.dt.strftime('%d').values
+        aa = pd.to_datetime(x)
+        xlabel = aa.strftime('%d')
+        # xlabel = aa.strftime('%d').values
         ax.set_xticklabels(xlabel, rotation=45)
+        ax.invert_yaxis()
 
-        plt.gca().invert_yaxis()
-        # ax.set_ylim(0, 300)
+        # plt.gca().invert_yaxis()
+        ax.set_ylim(570, 300)
         ax.set_title(title, fontsize=14)
         # ## 设置标签名称
         ax.set_xlabel("Time(UTC, day)", fontsize=14)
@@ -177,17 +147,22 @@ class Draw():
         model_list = ['ACM2', 'YSU', 'QNSE', 'QNSE_EDMF', 'TEMF', 'obs']
 
         ax6 = fig.add_axes([0.18, 0.06, 0.7, 0.02])  # 重新生成一个新的坐标图
-        keys = ['00', '12']
+        keys = ['00', '06', '12']
         # for model in model_list:
         for key in keys:
             for i in range(len(model_list)):
-                time_index = model_dic[model_list[i]].time.sel(
+                time_index_obs = model_dic['obs'].time.sel(time=datetime.time(int(key)))
+                time_index_model = model_dic[model_list[i]].time.sel(
                     time=datetime.time(int(key)))
+                # time_index = np. 
+                time_index = np.intersect1d(time_index_obs.values,
+                                            time_index_model.values)
+                # time_index = time_index_model
                 # time_index = time_index_dic[key]
                 CS = None
                 # time_index = model_dic[model_list[i]].time.sel(time=datetime.time(12))
-                title = str(station_name) + "_" + model_list[i] + "_" + str(
-                    key)
+                title = str(station_name) + "_" + model_list[i] + \
+                    "_" + str(key)+"_"+str(var)
                 CS = self.draw_contourf_single(var, axes[i],
                                                model_dic[model_list[i]], title,
                                                time_index)
@@ -211,47 +186,33 @@ if __name__ == '__main__':
 
     pass
     station_dic = {
-        'GaiZe': {
-            'lat': 32.3,
-            'lon': 84.0,
-            'name': 'GaiZe',
-            'number': '55248'
-        },
-        'ShenZha': {
-            'lat': 30.9,
-            'lon': 88.7,
-            'name': 'ShenZha',
-            'number': '55472'
-        },
+    #     'GaiZe': {
+    #         'lat': 32.3,
+    #         'lon': 84.0,
+    #         'name': 'GaiZe',
+    #         'number': '55248',
+    #         'height': 4400,
+    #     },
+        # 'ShenZha': {
+        #     'lat': 30.9,
+        #     'lon': 88.7,
+        #     'name': 'ShenZha',
+        #     'number': '55472',
+        #     'height': 4672
+        # },
         'ShiQuanhe': {
             'lat': 32.4,
             'lon': 80.1,
             'name': 'ShiQuanhe',
-            'number': '55228'
+            'number': '55228',
+            'height': 4280
         },
     }
-    station = station_dic['GaiZe']
-    # station = station_dic['ShiQuanhe']
-    # gd = Get_data()
-    # aa = gd.get_data_main('temp', station)
 
-    # var = 'temp'
-    # var = 't_td'
-
-    ## 测试wrfout插值
-    # re = Regrid()
-    # aa = re.get_pressure_lev(station)
-    # print(aa.values)
-
-    # ## 测试obs插值
-    # gb = Get_obs()
-    # aa = gb.read_obs(station)
-    # print(aa['wind_s'])
-    # print(aa)
-
-    #### 最终画图
-    var_list = ['temp', 't_td', 'wind', 'temp_grads', 't_td_grads', 'wind_grads']
-    var = var_list[4]
+    # 最终画图
+    var_list = ['temp', 't_td', 'wind', 'temp_grads',
+                't_td_grads', 'wind_grads', 'theta_v', 'q']
+    var = var_list[-1]
 
     Dr = Draw()
     Dr.draw_main(station_dic, var)
